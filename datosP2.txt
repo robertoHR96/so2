@@ -1,0 +1,20 @@
+padre -> 3 hijos -> 5 hijos 
+
+
+5 hijos:
+    recorre las 1000 columnas buscando primos, y guarda cuando encuentra,
+    Cuando todos terminen envia exit(x) al padres siendo x cuantos han
+    encontrado
+    Guardan en “N3_”pid”.primos” -> nivel:id_proceso:num_primo
+    Se comunican con pipes
+
+3 hijos:
+    Va sujando lo que le den los hijos, cuando todos terminen envia a padre 
+    la suma total de primos. memoria compartida.
+    guarda: “N2_”pid”.primos” las operaciones que realiza:
+        § Inicio de ejecución
+        § Identificación de que procesos está creando
+        § Resultado total enviado por sus hijos
+
+padres:
+    Va recibiendo señales y procesando
