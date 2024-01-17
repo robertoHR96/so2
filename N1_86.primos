@@ -1,0 +1,11 @@
+Inicio de la ejecucion
+Padre 86 crea el proceso hijo: 1 
+Padre 86 crea el proceso hijo: 2 
+Padre 86 crea el proceso hijo: 3 
+Padre recibe señal de finalización del hijo: 88
+Padre envia señal al hijo con pid: 88 para que termine 
+Padre recibe señal de finalización del hijo: 89
+Padre envia señal al hijo con pid: 89 para que termine 
+Padre recibe señal de finalización del hijo: 87
+Padre envia señal al hijo con pid: 87 para que termine 
+Numero total de primos: 613

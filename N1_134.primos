@@ -1,0 +1,9 @@
+Inicio de la ejecucion
+Padre 134 crea el proceso hijo: 1 
+Padre 134 crea el proceso hijo: 2 
+Padre 134 crea el proceso hijo: 3 
+Padre recibe señal de finalización del hijo: 137
+Padre envia señal al hijo con pid: 137 para que termine 
+Padre recibe señal de finalización del hijo: 135
+Padre envia señal al hijo con pid: 135 para que termine 
+Numero total de primos: 1342
