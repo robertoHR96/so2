@@ -16,7 +16,7 @@
 
 #define SHMSZ 4 // Tamaño de la memoria compartida
 #define FILAS 15
-#define COLUMNAS 30000
+#define COLUMNAS 10000
 #define RANGO_MAX 301
 
 int shmid; // ID de la memoria compartida
@@ -27,10 +27,10 @@ int descriptores[2];
 // Señal enviada desde el padre al hijo para que se finalize este
 void signal_fin_h2(int signum) {
     // printf("fin proceso : %d", getpid());
-    if (signum == SIGUSR2)
+    if (signum == SIGINT)
     {
         printf("Proceso hijo: %d finaliza\n", getpid());
-        kill(getpid(), 9);
+        //kill(getpid(), 9);
         exit(0);
     }
 }
@@ -52,7 +52,7 @@ int es_Primo(int numero) {
     return 1;
 }
 // señal enviada desde el hijo al padre,
-// para que desde la tuberia vea cual es sus:
+// plara que desde la tuberia vea cual es sus:
 // pid ( del hijo para que el padre pueda enviarle la señal singal_fin_h2 al hijo correspondiente)
 // su i para saber de que posicion de memoria compartida tiene que leeer
 // y asi poder ver desde memoria compartida lo que ha encontrado tal hijo
@@ -88,7 +88,7 @@ void signal_avisarPadre(int singnum) {
             iHijo = dataTuberia[1];
             fprintf(archivoN1, "Padre recibe señal del hijo: %d para leer de su posicion de memoria compartida \n", pidHijo);
             fclose(archivoN1);
-            printf("padre lee y escribe en memoria compartida: shm[hijo] %d shm[3] %d \n", shm[iHijo], shm[3]);
+            //printf("padre lee y escribe en memoria compartida: shm[hijo] %d shm[3] %d \n", shm[iHijo], shm[3]);
             shm[3] = shm[3] + shm[iHijo];
             printf("padre ya leeyo y escribio en memoria compartida: shm[hijo] %d shm[3] %d \n", shm[iHijo], shm[3]);
             // El padre el dice al hijo que puede terminar
@@ -96,8 +96,7 @@ void signal_avisarPadre(int singnum) {
             archivoN1 = fopen(nombreArchivoN1, "a");
             fprintf(archivoN1, "Padre envia señal al hijo con pid: %d para que termine \n", pidHijo);
             fclose(archivoN1);
-            close(descriptores[0]);
-            kill(pidHijo, SIGUSR2);
+            kill(pidHijo, SIGINT);
         }
         else
         {
@@ -176,11 +175,10 @@ int main() {
 
     // Crear tres procesos hijos
     //for (int i = 0; i < 3; i++){
-    int i = 0;
-    while (i < 3)
+    for (int i = 0; i < 3; i++)
     {
         //////// --> Guardar la crecion de un proceso en el fichero del padre //////////
-        printf("padre creando hijo: %d \n", i);
+        //printf("padre creando hijo: %d \n", i);
         archivoN1 = fopen(nombreArchivoN1, "a");
         fprintf(archivoN1, "Padre %d crea el proceso hijo: %d \n", getpid(), (i + 1));
         fclose(archivoN1);
@@ -194,17 +192,16 @@ int main() {
             case 0:
                 // Armado de señal para que termine cuando el padre se lo diga
                 // sigaction en vez de signal
-                struct sigaction sa;
 
                 // Configurar el manejador de señales
-                sa.sa_handler = signal_fin_h2;
-                sigemptyset(&sa.sa_mask);
-                sa.sa_flags = 0;
+                saP.sa_handler = signal_fin_h2;
+                sigemptyset(&saP.sa_mask);
+                saP.sa_flags = 0;
 
                 // Establecer el manejador de señales usando sigaction
-                if (sigaction(SIGUSR2, &sa, NULL) == -1)
+                if (sigaction(SIGINT, &saP, NULL) == -1)
                 {
-                    perror("Error en sigaction en el Hijo: " + i);
+                    perror("Error en sigaction en el Hijo: ");
                     exit(EXIT_FAILURE);
                 }
                 // signal(SIGINT, signal_fin_h2); // Manejar la seña SIGINT (Ctrl+C)
@@ -234,7 +231,6 @@ int main() {
                         case -1:
                             perror("fork 2");
                             exit(1);
-                            break;
                         case 0:
                             // printf("Proceso nieto%d con pid: %d con padre %d creado correctamente \n", e + 1, getpid(), getppid());
                             // se le asisgna la fila con la que va trabajar
@@ -270,7 +266,6 @@ int main() {
                             }
                             // Hace un exit con el numero de primos como pide el enunciado
                             exit(numPrimos);
-                            sleep(5);
                             break;
                         default:
                             break;
@@ -308,23 +303,19 @@ int main() {
                 // Escribe en la tuberia para avisar de que el padre ya puede leer.
                 int dataTuberia[2] = {getpid(), i};
                 write(descriptores[1], &dataTuberia, sizeof(dataTuberia));
-                close(descriptores[1]);
                 // Envia la señal al padre
                 // En la tuberia tiene su ID y su i
                 // el padre en base a esto lee de memoria compartida el dato
                 kill(getppid(), SIGUSR1);
                 // se pasa ya que finaliza cuando el padre le envia una señal
-                // pause();
+                pause();
                 break;
             default:
                 ////
-                valoresHijosIds[i] = pid;
-                printf("valor de i: %d \n", i);
-                i = i + 1;
                 // guarda el pid del hijo para enviarle luego la señal de que finalice
+                valoresHijosIds[i] = pid;
                 break;
         }
-        
     }
 
     // esperamos a que los tres hijos acaben
@@ -332,7 +323,8 @@ int main() {
         int estado;
         //pid_t wpid = waitpid(valoresHijosIds[o], &estado, 0);
         pid_t wpid = wait(&estado);
-        if (wpid > 0){
+        if ((wpid == valoresHijosIds[0]) || (wpid == valoresHijosIds[1]) || (wpid == valoresHijosIds[2]))
+        {
             if (WIFEXITED(estado)){
                 int exit_status = WEXITSTATUS(estado);
                 if (exit_status == 0) {
@@ -348,11 +340,11 @@ int main() {
         }
     }
 
-    kill(getpid(), SIGTERM);
-    exit(0);
-    kill(getpid(), 9);
     archivoN1 = fopen(nombreArchivoN1, "a");
     fprintf(archivoN1, "Numero total de primos: %d\n", shm[3]);
     fclose(archivoN1);
+    close(descriptores[0]);
+    close(descriptores[1]);
+    exit(0);
     return 0;
 }
