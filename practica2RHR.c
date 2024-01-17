@@ -14,13 +14,12 @@
 
 #include <time.h>
 
-#define SHMSZ 4 // Tamaño de la memoria compartida
+#define SHMSZ 3 // Tamaño de la memoria compartida
 #define FILAS 15
 #define COLUMNAS 10000
 #define RANGO_MAX 301
 
-int shmid; // ID de la memoria compartida
-int *shm;  // Puntero a la memoria compartida
+
 
 int descriptores[2];
 
@@ -86,11 +85,8 @@ void signal_avisarPadre(int singnum) {
             // y en la pos 4 los suma
             pidHijo = dataTuberia[0];
             iHijo = dataTuberia[1];
-            fprintf(archivoN1, "Padre recibe señal del hijo: %d para leer de su posicion de memoria compartida \n", pidHijo);
+            fprintf(archivoN1, "Padre recibe señal de finalización del hijo: %d\n", pidHijo);
             fclose(archivoN1);
-            //printf("padre lee y escribe en memoria compartida: shm[hijo] %d shm[3] %d \n", shm[iHijo], shm[3]);
-            shm[3] = shm[3] + shm[iHijo];
-            printf("padre ya leeyo y escribio en memoria compartida: shm[hijo] %d shm[3] %d \n", shm[iHijo], shm[3]);
             // El padre el dice al hijo que puede terminar
             sprintf(nombreArchivoN1, "N1_%d.primos", getpid());
             archivoN1 = fopen(nombreArchivoN1, "a");
@@ -106,6 +102,9 @@ void signal_avisarPadre(int singnum) {
 }
 
 int main() {
+    // Total de primos encontrados
+    int totalPrimos = 0;
+    // Esctructura para el manejador de señales
     struct sigaction saP;
 
     // Configurar el manejador de señales
@@ -148,6 +147,8 @@ int main() {
     pipe(descriptores);
 
     // Crear la memoria compartida
+    int shmid; // ID de la memoria compartida
+    int *shm;  // Puntero a la memoria compartida
     // Crea un espacio de 3 por que va generar 3 procesos hijos
     // que cada uno guardara cuantos numeros primos ha encontrado
     if ((shmid = shmget(key, 4 * sizeof(int), 0777 | IPC_CREAT)) < 0)  {
@@ -278,13 +279,12 @@ int main() {
                     int estado;
                     pid_t wpid = wait(&estado);
                     if (wpid > 0) {
+                        // Se comprueba la finalizacion del nieto
                         if (WIFEXITED(estado)) {
                             int exit_status = WEXITSTATUS(estado);
-                            if (exit_status == 0) {
-                                // printf("Proceso nieto con PID %d finalizado normalmente sin encontrar números primos\n", wpid);
-                            }
-                            else {
-                                // printf("Proceso nieto con PID %d finalizado normalmente encontrando %d números primos\n", wpid, exit_status);
+                            // Su exit es el numero de primos encontrados
+                            // Si es mayor a cero se actuliza el numero de primos encontrados
+                            if (exit_status > 0) {
                                 numPrimosHijos += exit_status; // Suma la cantidad de números primos encontrados por cada hijo
                             }
                         }
@@ -293,7 +293,6 @@ int main() {
                         }
                     }
                 }
-                //////// AQUI ES DONDE SE GUARDA EN MEMORIA COMPARTIDA LA CANTIDAD DE PRIMOS QUE HA ENCONTRADO ????? ///////
                 // Se guarda el resultado total enviado por sus hijos.
                 archivoN2 = fopen(nombreArchivoN2, "a");
                 fprintf(archivoN2, "Total de primos encontrados: %d \n", numPrimosHijos);
@@ -305,7 +304,7 @@ int main() {
                 write(descriptores[1], &dataTuberia, sizeof(dataTuberia));
                 // Envia la señal al padre
                 // En la tuberia tiene su ID y su i
-                // el padre en base a esto lee de memoria compartida el dato
+                // El padre en base a esto lee de memoria compartida el dato
                 kill(getppid(), SIGUSR1);
                 // se pasa ya que finaliza cuando el padre le envia una señal
                 pause();
@@ -325,13 +324,14 @@ int main() {
         pid_t wpid = wait(&estado);
         if ((wpid == valoresHijosIds[0]) || (wpid == valoresHijosIds[1]) || (wpid == valoresHijosIds[2]))
         {
+            // Se comprueba la finalización del proceso hijo
             if (WIFEXITED(estado)){
                 int exit_status = WEXITSTATUS(estado);
                 if (exit_status == 0) {
                     printf("Proceso hijo: %d con PID %d finalizado normalmente con un exit(0)\n", o, wpid);
                 }
                 else {
-                    printf("Proceso hijo: %d con PID %d finalizado normalmente encontrando\n", o, wpid);
+                    printf("Proceso hijo: %d con PID %d finalizado con un exit(%d)\n", o, wpid, exit_status);
                 }
             }
             else {
@@ -340,11 +340,18 @@ int main() {
         }
     }
 
+    pause();
+
+    // Padre cuando los hijos acaban lee de memoria compartida y hace la suma total de primos encontrados
+    totalPrimos = shm[0] + shm[1] + shm[2];
+    // Padre guarda en el fichero el total de hiijos encontrados
     archivoN1 = fopen(nombreArchivoN1, "a");
-    fprintf(archivoN1, "Numero total de primos: %d\n", shm[3]);
+    fprintf(archivoN1, "Numero total de primos: %d\n", totalPrimos);
     fclose(archivoN1);
+    // Padre cierra los descriptores
     close(descriptores[0]);
     close(descriptores[1]);
+    // Padre termina
     exit(0);
     return 0;
 }
